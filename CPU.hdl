@@ -28,7 +28,7 @@
 CHIP CPU {
 
     IN  inM[16],         // M value input  (M = contents of RAM[A])
-        instruction[16], // Instruction for execution
+        instruction[16], // Instruction for execution "
         reset;           // Signals whether to re-start the current
                          // program (reset==1) or continue executing
                          // the current program (reset==0).
@@ -39,5 +39,58 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    //Is it an a or c instruction
+    Not(in = instruction[15], out = ainstr);
+    Not(in = ainstr, out = cinstr);
+
+    //A Register
+    //Are we setting a to something in a c instruction
+    And(a = cinstr, b = instruction[5], out = computea);
+    //Is it a computation or a setting
+    Mux16(a = instruction, b = alu, sel = instruction[15], out = aorcinstr);
+    //Is it being used for a setting or a computation
+    Or(a = ainstr, b = computea, out = aload);
+    //Send the instruction through
+    ARegister(in = aorcinstr, load = aload, out = a);
+
+    //D Register
+    //Are we setting d to something
+    And(a = instruction[4], b = cinstr, out = dload);
+    //Send the computation through
+    DRegister(in = alu, load = dload, out = d);
+
+    //ALU
+    //Get y
+    Mux16(a = a, b = inM, sel = instruction[12], out = y);
+    //Run the ALU
+    ALU(x = d, y = y, zx = instruction[11], nx = instruction[10], zy = instruction[9], ny = instruction[8], f = instruction[7], no = instruction[6], out = alu, zr = zero, ng = neg);
+
+    //Jumps
+    //Jump less than zero
+    And(a = instruction[2], b = neg, out = jlt);
+    //Jump equal to zero
+    And(a = instruction[1], b = zero, out = jeq);
+    //Get a notzero and notneg to compute if the alu is positive
+    Not(in = zero, out = notzero);
+    Not(in = neg, out = notneg);
+    And(a = notzero, b = notneg, out = pos);
+    //Jump greater than zero
+    And(a = instruction[0], b = pos, out = jgt);
+    //Do we jump
+    Or(a = jlt, b = jeq, out = jltjeq);
+    Or(a = jltjeq, b = jgt, out = letsjump);
+    //Let's jump
+    And(a = cinstr, b = letsjump, out = jmp);
+
+    //outM
+    And16(a = alu, b = true, out = outM);
+
+    //writeM
+    And(a = cinstr, b = instruction[3], out = writeM);
+
+    //addressM
+    And16(a = a, b = true, out[0..14] = addressM);
+
+    //PC
+    PC(in = a, load = jmp, inc = true, reset = reset, out[0..14] = pc);
 }
