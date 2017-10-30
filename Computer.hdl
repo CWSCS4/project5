@@ -20,4 +20,35 @@ CHIP Computer {
 
     PARTS:
     // Put your code here:
+    /* CPU
+
+    input:
+    	instruction: from ROM
+    	inM: from Memory
+    	reset: from input
+
+	output:
+		pc: pc, to ROM for next instruction
+		addressM: for Memory
+		writeM: for Memory
+		outM: for Memory
+
+     */
+    CPU(instruction=outputROMInstruction, inM=outputMemory,
+    		reset=reset, pc=pc, addressM=addressM,
+    		writeM=writeM, outM=outM);
+
+    /* ROM32K, contains instructions
+    	address: contains address num from CPU's PC chip
+    	out: outputROMInstruction, for CPU
+    */
+    ROM32K(address=pc, out=outputROMInstruction);
+    
+    /* Memory, handles RAM, Screen, keyboard
+		in: outM, from CPU
+		load: writeM, from CPU
+		address: addressM, from CPU
+		out: outputMemory, for CPU
+    */
+    Memory(in=outM, load=writeM, address=addressM, out=outputMemory);
 }
