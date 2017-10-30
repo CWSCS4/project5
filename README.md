@@ -3,4 +3,4 @@ CPU and Computer
 
 - [X] Memory
 - [X] CPU
-- [ ] Computer
+- [X] Computer
