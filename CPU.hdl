@@ -40,4 +40,93 @@ CHIP CPU {
 
     PARTS:
     // Put your code here:
+
+    // figure out which instruction
+    // if the very first intruction is a 0, it's an a instruction
+    // otherwise, it's a c instruction
+    Not(in=instruction[15], out=Ainstr);
+    Not(in=Ainstr, out=Cinstr);
+
+    // handle A register
+
+    // first, check if C instruction and A instruction is specified
+    And(a=Cinstr, b=instruction[5], out=inputA);
+    // if so, use the mux with output instr and output from ALU
+    Mux16(a=instruction, b=outputALU, sel=inputA, out=inputARegister);
+    // check if supposed to set or ALU compute
+    Or(a=Ainstr, b=inputA, out=loadARegister);
+    // A register, the built in chip
+    ARegister(in=inputARegister, load=loadARegister, out=AReg);
+
+    // handle D register
+    // check if supposed to manage D register from instruction
+    And(a=instruction[4], b=Cinstr, out=loadDRegister);
+    // D register, built in chip
+    DRegister(in=outputALU, load=loadDRegister, out=DReg);
+
+    // handle ALU
+
+    // choose whether to use M input or A input
+    Mux16(a=AReg, b=inM, sel=instruction[12], out=ALUinputY);
+
+    ALU(x=DReg, y=ALUinputY, zx=instruction[11], 
+        nx=instruction[10], zy=instruction[9],
+        ny=instruction[8], f=instruction[7],
+        no=instruction[6], out=outputALU, 
+        zr=zeroALU, ng=negALU);
+
+    /* Handle Jumps (not all are necessary):
+     * 0 0 0 -> null -> no jump
+     * 0 0 1 -> JGT -> out > 0; done
+        - not <, not =
+     * 0 1 0 -> JEQ -> out = 0; done
+     * 0 1 1 -> JGE -> out >= 0;
+        - = and not <
+     * 1 0 0 -> JLT -> out < 0;
+     * 1 0 1 -> JNE -> out != 0;
+        - not = and not < and not >
+     * 1 1 0 -> JLE -> out <= 0; done
+        - < and =
+     * 1 1 1 -> JMP -> jump
+        - true
+    */
+
+    // write value of A register to output A register (address)
+    Or16(a=false, b=AReg, out[0..14]=addressM);
+    // write ALU output to M register
+    Or16(a=false, b=outputALU, out=outM);
+    // calculate whether to write value to M based on C instruction and input instruction
+    And(a=Cinstr, b=instruction[3], out=writeM);
+
+    // calculate some 0, <, and > based on givens
+    Not(in=zeroALU, out=notZeroALU);
+    Not(in=negALU, out=notNegALU);
+    And(a=notZeroALU, b=notNegALU, out=posALU);
+
+    // do in specific order so can do it just from ALU
+    // built into ALU: negative, equal to 0
+    // Handle JLT (out < 0)
+    And(a=instruction[2], b=negALU, out=JLT);
+    // Handle JEQ (out = 0)
+    And(a=instruction[1], b=zeroALU, out=JEQ);
+    // Handle JGT (out > 0)
+    And(a=instruction[0], b=posALU, out=JGT);
+    // Handle JLE (out <= 0)
+    Or(a=JLT, b=JEQ, out=JLE);
+
+    // jump if JLE or JGT
+    Or(a=JLE, b=JGT, out=jumpA);
+
+    // if C instr and jump, need to change instr in PC
+    And(a=Cinstr, b=jumpA, out=loadPC);
+
+    // if not supposed to load, then PC is supposed to inc
+    Not(in=loadPC, out=incPC);
+
+    // handle PC
+    PC(in=AReg, reset=reset, inc=incPC, load=loadPC, out[0..14]=pc);
 }
+
+
+
+

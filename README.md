@@ -2,5 +2,5 @@
 CPU and Computer
 
 - [X] Memory
-- [ ] CPU
+- [X] CPU
 - [ ] Computer
