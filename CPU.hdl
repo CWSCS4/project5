@@ -40,4 +40,54 @@ CHIP CPU {
 
     PARTS:
     // Put your code here:
+    
+    //If instr is an adress command, sets the ALU to return the input from the A register
+    //Otherwise, set ALU controls as dictated by the instruction bits
+    Not(in=instruction[11], out=notzx);
+    Nand(a=notzx, b=instruction[15], out=zx);
+    And(a=instruction[10], b=instruction[15], out=nx);
+    And(a=instruction[9], b=instruction[15], out=zy);
+    And(a=instruction[8], b=instruction[15], out=ny);
+    Not(in=instruction[7], out=notf);
+    Nand(a=notf, b=instruction[15], out=f);
+    And(a=instruction[6], b=instruction[15], out=no);
+    
+    //If instr is an adress command, pass in the address to the A register
+    //Otherwise, pass in the ALU output
+    Mux16(a=instruction, b=outALU, sel=instruction[15], out=inA);
+    
+    //If instr is an adress command or a compute function which stores the ALU output in A, then change the A register to its new value
+    Not(in=instruction[15], out=addressChange);
+    Or(a=addressChange, b=instruction[5], out=loadA);
+    
+    //Processes the register input & assigns addressM to its new address
+    ARegister(in=inA, load=loadA, out=outA, out[0..14]=addressM);
+    
+    //Chooses either A or M to input into the ALU
+    And(a=instruction[12], b=instruction[15], out=selAM);
+    Mux16(a=outA, b=inM, sel=selAM, out=outAM);
+    
+    //If a compute instruction says to change the value of D, assign it to the ALU output
+    And(a=instruction[15], b=instruction[4], out=loadD);
+    DRegister(in=outALU, load=loadD, out=outD);
+    
+    //Performs computation based on the inputs, and outputs the result to outM
+    ALU(x=outD, y=outAM, zx=zx, nx=nx, zy=zy, ny=ny, f=f, no=no, out=outALU, out=outM, zr=zr, ng=ng);
+    
+    //Based on ALU output and the instruction jump pins, determines whether it should jump or not
+    And(a=zr, b=instruction[1], out=eqJump);
+    And(a=ng, b=instruction[2], out=ngJump);
+    Or(a=ng, b=zr, out=ngzr);
+    Not(in=ngzr, out=pos);
+    And(a=pos, b=instruction[0], out=posJump);
+    Or(a=eqJump, b=ngJump, out=notposJump);
+    Or(a=notposJump, b=posJump, out=tempJump);
+    And(a=tempJump, b=instruction[15], out=jump);
+    
+    //Moves the program counter, either resetting, jumping, or incrementing
+    PC(in=outA, reset=reset, inc=true, load=jump, out[0..14]=pc);
+    
+    //Writes to M is a compute instruction tells the program to
+    And(a=instruction[3], b=instruction[15], out=writeM);
 }
+    
